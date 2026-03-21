@@ -501,12 +501,12 @@ html_output = minify(html_content, remove_empty_space=True)
 def convert(self, markdown_text: str) -> str:
     # 步骤1: Markdown转HTML
     html_content = md.convert(markdown_text)
-    with open('debug_step1.html', 'w') as f:
+    with open('debug_step1.html', 'w', encoding='utf-8') as f:
         f.write(html_content)
 
     # 步骤2: 增强代码块
     html_content = self._enhance_code_blocks(html_content)
-    with open('debug_step2.html', 'w') as f:
+    with open('debug_step2.html', 'w', encoding='utf-8') as f:
         f.write(html_content)
 
     # ... 后续步骤

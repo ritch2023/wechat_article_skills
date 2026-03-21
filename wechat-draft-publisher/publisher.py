@@ -5,14 +5,15 @@
 支持上传封面图片、创建草稿文章
 """
 
+import argparse
+import json
 import os
 import sys
-import json
 import time
-import requests
-import argparse
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict
+
+import requests
 
 
 class WeChatPublisher:
@@ -35,7 +36,7 @@ class WeChatPublisher:
         47003: "参数错误，请检查必填字段是否完整",
         48001: "api功能未授权，请确认公众号类型",
         50005: "用户未关注公众号",
-        -1: "系统繁忙，请稍后重试"
+        -1: "系统繁忙，请稍后重试",
     }
 
     def __init__(self):
@@ -58,7 +59,7 @@ class WeChatPublisher:
             print("  3. 复制AppID和AppSecret\n")
 
             should_setup = input("是否现在配置？(Y/n): ").strip().lower()
-            if should_setup in ['', 'y', 'yes']:
+            if should_setup in ["", "y", "yes"]:
                 self._interactive_setup()
             else:
                 raise FileNotFoundError(
@@ -68,22 +69,29 @@ class WeChatPublisher:
 
         # 验证配置文件格式
         try:
-            with open(self.CONFIG_FILE, 'r', encoding='utf-8') as f:
+            with open(self.CONFIG_FILE, "r", encoding="utf-8") as f:
                 config = json.load(f)
         except json.JSONDecodeError as e:
             raise ValueError(f"配置文件格式错误: {e}\n请检查JSON格式是否正确")
 
         # 验证必需字段
-        self.appid = config.get('appid', '').strip()
-        self.appsecret = config.get('appsecret', '').strip()
+        self.appid = config.get("appid", "").strip()
+        self.appsecret = config.get("appsecret", "").strip()
 
-        if not self.appid or self.appid in ['your_appid_here', 'your_appid']:
-            raise ValueError(f"请在配置文件中填写有效的appid\n配置文件: {self.CONFIG_FILE}")
-        if not self.appsecret or self.appsecret in ['your_appsecret_here', 'your_appsecret']:
-            raise ValueError(f"请在配置文件中填写有效的appsecret\n配置文件: {self.CONFIG_FILE}")
+        if not self.appid or self.appid in ["your_appid_here", "your_appid"]:
+            raise ValueError(
+                f"请在配置文件中填写有效的appid\n配置文件: {self.CONFIG_FILE}"
+            )
+        if not self.appsecret or self.appsecret in [
+            "your_appsecret_here",
+            "your_appsecret",
+        ]:
+            raise ValueError(
+                f"请在配置文件中填写有效的appsecret\n配置文件: {self.CONFIG_FILE}"
+            )
 
         # 验证格式
-        if not self.appid.startswith('wx') or len(self.appid) != 18:
+        if not self.appid.startswith("wx") or len(self.appid) != 18:
             print("⚠ 警告: AppID格式可能不正确（应为wx开头的18位字符）")
 
         print(f"✓ 配置加载成功 (AppID: {self.appid[:6]}***)")
@@ -95,14 +103,14 @@ class WeChatPublisher:
         appsecret = input("AppSecret: ").strip()
 
         # 简单验证
-        if not appid.startswith('wx'):
+        if not appid.startswith("wx"):
             print("⚠ 警告: AppID通常以wx开头")
 
         # 创建配置目录和文件
         os.makedirs(os.path.dirname(self.CONFIG_FILE), exist_ok=True)
         config_data = {"appid": appid, "appsecret": appsecret}
 
-        with open(self.CONFIG_FILE, 'w', encoding='utf-8') as f:
+        with open(self.CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
 
         os.chmod(self.CONFIG_FILE, 0o600)
@@ -125,6 +133,7 @@ class WeChatPublisher:
             error_detail += "\n  3. 添加当前服务器IP"
             try:
                 import socket
+
                 ip = socket.gethostbyname(socket.gethostname())
                 error_detail += f"\n  4. 当前IP可能是: {ip}"
             except:
@@ -156,13 +165,13 @@ class WeChatPublisher:
         # 尝试从缓存读取
         if not force_refresh and os.path.exists(self.TOKEN_CACHE_FILE):
             try:
-                with open(self.TOKEN_CACHE_FILE, 'r') as f:
+                with open(self.TOKEN_CACHE_FILE, "r", encoding="utf-8") as f:
                     cache = json.load(f)
 
                 # 检查token是否过期（提前5分钟刷新）
-                if time.time() < cache.get('expires_at', 0) - 300:
+                if time.time() < cache.get("expires_at", 0) - 300:
                     print("✓ 使用缓存的access_token")
-                    return cache['access_token']
+                    return cache["access_token"]
             except Exception as e:
                 print(f"⚠ 读取token缓存失败: {e}")
 
@@ -170,34 +179,34 @@ class WeChatPublisher:
         print("→ 正在获取新的access_token...")
         url = f"{self.BASE_URL}/token"
         params = {
-            'grant_type': 'client_credential',
-            'appid': self.appid,
-            'secret': self.appsecret
+            "grant_type": "client_credential",
+            "appid": self.appid,
+            "secret": self.appsecret,
         }
 
         response = requests.get(url, params=params)
         result = response.json()
 
-        if 'errcode' in result:
+        if "errcode" in result:
             error_msg = self._handle_api_error(
-                result['errcode'],
-                result.get('errmsg', 'Unknown error'),
-                context="获取access_token"
+                result["errcode"],
+                result.get("errmsg", "Unknown error"),
+                context="获取access_token",
             )
             raise Exception(error_msg)
 
-        access_token = result['access_token']
-        expires_in = result.get('expires_in', 7200)
+        access_token = result["access_token"]
+        expires_in = result.get("expires_in", 7200)
 
         # 缓存token
         os.makedirs(os.path.dirname(self.TOKEN_CACHE_FILE), exist_ok=True)
         cache_data = {
-            'access_token': access_token,
-            'expires_at': time.time() + expires_in,
-            'updated_at': time.strftime('%Y-%m-%d %H:%M:%S')
+            "access_token": access_token,
+            "expires_at": time.time() + expires_in,
+            "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         }
 
-        with open(self.TOKEN_CACHE_FILE, 'w') as f:
+        with open(self.TOKEN_CACHE_FILE, "w", encoding="utf-8") as f:
             json.dump(cache_data, f, indent=2)
 
         print(f"✓ 获取access_token成功 (有效期: {expires_in}秒)")
@@ -222,27 +231,24 @@ class WeChatPublisher:
         token = self.get_access_token()
         url = f"{self.BASE_URL}/material/add_material"
 
-        params = {
-            'access_token': token,
-            'type': 'image'
-        }
+        params = {"access_token": token, "type": "image"}
 
-        with open(image_path, 'rb') as f:
-            files = {'media': (os.path.basename(image_path), f, 'image/jpeg')}
+        with open(image_path, "rb") as f:
+            files = {"media": (os.path.basename(image_path), f, "image/jpeg")}
             response = requests.post(url, params=params, files=files)
 
         result = response.json()
 
-        if 'errcode' in result and result['errcode'] != 0:
+        if "errcode" in result and result["errcode"] != 0:
             error_msg = self._handle_api_error(
-                result['errcode'],
-                result.get('errmsg', 'Unknown error'),
-                context="上传图片"
+                result["errcode"],
+                result.get("errmsg", "Unknown error"),
+                context="上传图片",
             )
             raise Exception(error_msg)
 
-        media_id = result.get('media_id')
-        image_url = result.get('url', '')
+        media_id = result.get("media_id")
+        image_url = result.get("url", "")
         print(f"✓ 图片上传成功 (media_id: {media_id})")
 
         if return_url:
@@ -274,16 +280,16 @@ class WeChatPublisher:
         ]
 
         for pattern in cover_patterns:
-            content = re.sub(pattern, '', content, flags=re.IGNORECASE)
+            content = re.sub(pattern, "", content, flags=re.IGNORECASE)
 
         # 策略2: 移除注释后的第一张图片（通常是封面图位置）
         # 匹配：<!-- 注释 --> 后紧跟的 <img> 标签
         content = re.sub(
-            r'(<!--[^>]*标题[^>]*-->)\s*<img[^>]*>',
-            r'\1',
+            r"(<!--[^>]*标题[^>]*-->)\s*<img[^>]*>",
+            r"\1",
             content,
             count=1,
-            flags=re.IGNORECASE
+            flags=re.IGNORECASE,
         )
 
         return content
@@ -300,7 +306,6 @@ class WeChatPublisher:
             替换后的HTML内容
         """
         import re
-        from pathlib import Path
 
         # 正则匹配所有 <img src="本地路径"> 标签
         img_pattern = r'<img([^>]*?)src=["\']([^"\']+)["\']([^>]*?)>'
@@ -314,11 +319,11 @@ class WeChatPublisher:
             after_src = match.group(3)
 
             # 跳过已经是HTTP/HTTPS的图片
-            if src.startswith(('http://', 'https://')):
+            if src.startswith(("http://", "https://")):
                 return match.group(0)
 
             # 跳过封面图（已单独处理）
-            if 'cover' in src.lower():
+            if "cover" in src.lower():
                 return match.group(0)
 
             # 构建完整路径
@@ -374,7 +379,7 @@ class WeChatPublisher:
         # === 核心修复：将带背景色的 div/section 转换为 table（微信编辑器会保留 table 的背景色）===
         def add_important_to_style(style):
             """给style中的所有CSS属性添加 !important"""
-            declarations = style.split(';')
+            declarations = style.split(";")
             important_declarations = []
 
             for decl in declarations:
@@ -383,16 +388,16 @@ class WeChatPublisher:
                     continue
 
                 # 如果已经有 !important，保持不变
-                if '!important' in decl:
+                if "!important" in decl:
                     important_declarations.append(decl)
                 else:
                     # 否则添加 !important
-                    important_declarations.append(decl + '!important')
+                    important_declarations.append(decl + "!important")
 
-            return ';'.join(important_declarations) + ';'
+            return ";".join(important_declarations) + ";"
 
         # 转换计数器
-        conversion_count = {'converted': 0, 'excluded': 0}
+        conversion_count = {"converted": 0, "excluded": 0}
 
         def convert_bg_div_to_table(match):
             """将带背景色的 div/section 转换为 table 结构"""
@@ -402,32 +407,35 @@ class WeChatPublisher:
 
             # 排除不应该转换的情况：
             # 1. 排除最外层容器（background-color: #ffffff 且包含 font-family）
-            if 'font-family' in style and 'ffffff' in style.lower():
-                conversion_count['excluded'] += 1
+            if "font-family" in style and "ffffff" in style.lower():
+                conversion_count["excluded"] += 1
                 return match.group(0)
 
             # 2. 排除纯白色背景且没有边框的元素（可能是容器）
             # 去除空格后检查
-            style_no_space = style.replace(' ', '')
-            if ('background:#ffffff' in style_no_space or 'background-color:#ffffff' in style_no_space) and 'border' not in style:
-                conversion_count['excluded'] += 1
+            style_no_space = style.replace(" ", "")
+            if (
+                "background:#ffffff" in style_no_space
+                or "background-color:#ffffff" in style_no_space
+            ) and "border" not in style:
+                conversion_count["excluded"] += 1
                 return match.group(0)
 
             # 只转换真正需要的背景色区块
-            if 'background' not in style.lower():
+            if "background" not in style.lower():
                 return match.group(0)
 
             # 给所有CSS属性添加 !important（关键：确保微信编辑器不会覆盖样式）
             style_important = add_important_to_style(style)
 
             # 提取 margin 值（如果有）
-            margin_match = re.search(r'margin[^:]*:\s*([^;!]+)', style)
-            margin = margin_match.group(1).strip() if margin_match else '0'
+            margin_match = re.search(r"margin[^:]*:\s*([^;!]+)", style)
+            margin = margin_match.group(1).strip() if margin_match else "0"
 
             # 构建 table 结构（添加圆角）
             # border-collapse:separate 才能让圆角生效，overflow:hidden 确保内容不会超出圆角
             table_html = f'<table style="width:100%!important;border-collapse:separate!important;border-spacing:0!important;border-radius:10px!important;overflow:hidden!important;margin:{margin}!important;"><tr><td style="{style_important}">{content}</td></tr></table>'
-            conversion_count['converted'] += 1
+            conversion_count["converted"] += 1
             return table_html
 
         # 转换所有带 style 且包含 background 的 div/section（但排除 span 等行内元素）
@@ -435,135 +443,137 @@ class WeChatPublisher:
             r'<(div|section)\s+style="([^"]*background[^"]*)"[^>]*>(.*?)</\1>',
             convert_bg_div_to_table,
             content,
-            flags=re.DOTALL | re.IGNORECASE
+            flags=re.DOTALL | re.IGNORECASE,
         )
 
         # 打印转换统计
-        print(f"  → 背景色区块转换: 成功转换 {conversion_count['converted']} 个, 排除 {conversion_count['excluded']} 个")
+        print(
+            f"  → 背景色区块转换: 成功转换 {conversion_count['converted']} 个, 排除 {conversion_count['excluded']} 个"
+        )
 
         # === 超级压缩：彻底删除所有空白（这是关键！）===
         # 1. 删除所有标签间的空白和换行符
-        content = re.sub(r'>\s+<', '><', content)
+        content = re.sub(r">\s+<", "><", content)
 
         # 2. 删除标签后的空白（包括标签内的换行）
-        content = re.sub(r'>\s+', '>', content)
-        content = re.sub(r'\s+<', '<', content)
+        content = re.sub(r">\s+", ">", content)
+        content = re.sub(r"\s+<", "<", content)
 
         # 3. 压缩多个连续空格为一个（保留正常文本中的空格）
-        content = re.sub(r'  +', ' ', content)
+        content = re.sub(r"  +", " ", content)
 
         # === 微信编辑器兼容性修复：CSS属性处理 ===
         # 1. 保留 border-radius 但添加 !important（尝试保留圆角效果）
-        content = re.sub(r'border-radius:\s*([^;!]+);', r'border-radius:\1!important;', content)
+        content = re.sub(
+            r"border-radius:\s*([^;!]+);", r"border-radius:\1!important;", content
+        )
 
         # 2. 移除 box-shadow（阴影，微信编辑器确实不支持）
-        content = re.sub(r'box-shadow:\s*[^;]+;\s*', '', content)
+        content = re.sub(r"box-shadow:\s*[^;]+;\s*", "", content)
 
         # 3. 移除 text-shadow
-        content = re.sub(r'text-shadow:\s*[^;]+;\s*', '', content)
+        content = re.sub(r"text-shadow:\s*[^;]+;\s*", "", content)
 
         # 4. 处理背景样式（微信编辑器对背景的限制）
         # 4.1 移除渐变背景（微信不支持 linear-gradient）
-        content = re.sub(r'background:\s*linear-gradient[^;]+;', '', content)
+        content = re.sub(r"background:\s*linear-gradient[^;]+;", "", content)
 
         # 4.2 统一 background 为 background-color 并添加 !important
-        content = re.sub(r'\bbackground:\s*([#a-fA-F0-9]+);', r'background-color:\1!important;', content)
+        content = re.sub(
+            r"\bbackground:\s*([#a-fA-F0-9]+);",
+            r"background-color:\1!important;",
+            content,
+        )
 
         # 4.3 确保所有 background-color 都有 !important
-        content = re.sub(r'background-color:\s*([^;!]+);', r'background-color:\1!important;', content)
+        content = re.sub(
+            r"background-color:\s*([^;!]+);", r"background-color:\1!important;", content
+        )
 
         # 5. 将所有 <section> 改为 <div>（避免额外空行）
-        content = content.replace('<section', '<div')
-        content = content.replace('</section>', '</div>')
+        content = content.replace("<section", "<div")
+        content = content.replace("</section>", "</div>")
 
         # 6. 优化 margin（保持舒适间距，避免过于紧凑）
         # 保留卡片间的间距（18px），只压缩过大的margin
-        content = re.sub(r'margin-bottom:\s*([3-9]\d+|[1-9]\d{2,})px;', 'margin-bottom:18px;', content)  # 只压缩>=30px的
-        content = re.sub(r'margin:\s*\d+px\s+0\s+\d+px\s+0;', 'margin:0 0 18px 0;', content)
+        content = re.sub(
+            r"margin-bottom:\s*([3-9]\d+|[1-9]\d{2,})px;",
+            "margin-bottom:18px;",
+            content,
+        )  # 只压缩>=30px的
+        content = re.sub(
+            r"margin:\s*\d+px\s+0\s+\d+px\s+0;", "margin:0 0 18px 0;", content
+        )
 
         # === 核心修复2：在最外层容器强制禁用缩进和设置字体大小 ===
         # 修复微信编辑器默认添加的 text-indent: 2em
         content = re.sub(
             r'(<div[^>]*style="[^"]*)(">)',
-            lambda m: m.group(1) + ' text-indent: 0 !important; font-size: 15px !important;' + m.group(2),
+            lambda m: (
+                m.group(1)
+                + " text-indent: 0 !important; font-size: 15px !important;"
+                + m.group(2)
+            ),
             content,
-            count=1  # 只修改第一个div（外层容器）
+            count=1,  # 只修改第一个div（外层容器）
         )
 
         # === 样式修复：确保所有关键样式不被微信编辑器破坏 ===
 
         # 1. text-indent 强制为 0 且使用 !important（彻底禁用缩进）
-        content = re.sub(r'text-indent:\s*[^;!]+;', 'text-indent: 0 !important;', content)
-        content = re.sub(r'text-indent:\s*0;', 'text-indent: 0 !important;', content)
+        content = re.sub(
+            r"text-indent:\s*[^;!]+;", "text-indent: 0 !important;", content
+        )
+        content = re.sub(r"text-indent:\s*0;", "text-indent: 0 !important;", content)
 
         # 给所有没有 text-indent 的 style 属性添加
         content = re.sub(
             r'style="(?![^"]*text-indent)([^"]*)"',
             r'style="\1 text-indent: 0 !important;"',
-            content
+            content,
         )
 
         # 2. margin 统一处理（保持舒适的段落间距和呼吸感）
         # 段落的 margin 设置为舒适值
         content = re.sub(
-            r'margin:\s*0\s+0\s+\d+px\s+0;',
-            'margin: 0 0 18px 0 !important;',
-            content
+            r"margin:\s*0\s+0\s+\d+px\s+0;", "margin: 0 0 18px 0 !important;", content
         )
         content = re.sub(
-            r'margin-bottom:\s*\d+px;',
-            'margin-bottom: 18px !important;',
-            content
+            r"margin-bottom:\s*\d+px;", "margin-bottom: 18px !important;", content
         )
         # section/卡片 之间的间距（调整为18px，更自然）
         content = re.sub(
-            r'margin:\s*\d+px\s+0;',
-            'margin: 0 0 18px 0 !important;',
-            content
+            r"margin:\s*\d+px\s+0;", "margin: 0 0 18px 0 !important;", content
         )
 
         # 3. 添加 !important 到关键对齐属性
         # vertical-align（防止圆形序号错位）
         content = re.sub(
-            r'vertical-align:\s*([^;!]+);',
-            r'vertical-align: \1 !important;',
-            content
+            r"vertical-align:\s*([^;!]+);", r"vertical-align: \1 !important;", content
         )
 
         # text-align（防止对齐错位）
         content = re.sub(
-            r'text-align:\s*([^;!]+);',
-            r'text-align: \1 !important;',
-            content
+            r"text-align:\s*([^;!]+);", r"text-align: \1 !important;", content
         )
 
         # 4. display 属性加 !important（防止布局打乱）
         content = re.sub(
-            r'display:\s*inline-block;',
-            'display: inline-block !important;',
-            content
+            r"display:\s*inline-block;", "display: inline-block !important;", content
         )
 
         # 5. line-height 加 !important（防止行高被重置）
         content = re.sub(
-            r'line-height:\s*([^;!]+);',
-            r'line-height: \1 !important;',
-            content
+            r"line-height:\s*([^;!]+);", r"line-height: \1 !important;", content
         )
 
         # 6. font-size 加 !important（防止字体变大）
         content = re.sub(
-            r'font-size:\s*([^;!]+);',
-            r'font-size: \1 !important;',
-            content
+            r"font-size:\s*([^;!]+);", r"font-size: \1 !important;", content
         )
 
         # 7. padding 加 !important（防止内边距变化）
-        content = re.sub(
-            r'padding:\s*([^;!]+);',
-            r'padding: \1 !important;',
-            content
-        )
+        content = re.sub(r"padding:\s*([^;!]+);", r"padding: \1 !important;", content)
 
         # === 圆角优化：只给卡片表格（单行无<th>的表格）添加圆角 ===
         # 1. 将 border-collapse: collapse 改为 separate（允许圆角）- 只对卡片表格
@@ -573,70 +583,68 @@ class WeChatPublisher:
             """只给卡片表格（不含<th>的表格）添加圆角"""
             table_html = match.group(0)
             # 如果表格包含 <th>（数据表格），不添加圆角
-            if '<th' in table_html.lower():
+            if "<th" in table_html.lower():
                 return table_html
             # 卡片表格：添加圆角
             table_html = table_html.replace(
-                'border-collapse: collapse;',
-                'border-collapse:separate;border-spacing:0;overflow:hidden!important;'
+                "border-collapse: collapse;",
+                "border-collapse:separate;border-spacing:0;overflow:hidden!important;",
             ).replace(
-                'border-collapse:collapse;',
-                'border-collapse:separate;border-spacing:0;overflow:hidden!important;'
+                "border-collapse:collapse;",
+                "border-collapse:separate;border-spacing:0;overflow:hidden!important;",
             )
             # 给table添加圆角
             table_html = re.sub(
                 r'<table\s+style="',
                 '<table style="border-radius:10px!important;',
-                table_html
+                table_html,
             )
             # 给td添加圆角
             table_html = re.sub(
                 r'(<td\s+style="[^"]*)(">)',
-                r'\1border-radius:10px!important;\2',
-                table_html
+                r"\1border-radius:10px!important;\2",
+                table_html,
             )
             return table_html
 
         # 匹配完整的表格并处理
         content = re.sub(
-            r'<table[^>]*>.*?</table>',
+            r"<table[^>]*>.*?</table>",
             add_rounded_corners_to_card_tables,
             content,
-            flags=re.DOTALL | re.IGNORECASE
+            flags=re.DOTALL | re.IGNORECASE,
         )
 
         # 4. 去除相关资源部分的边框（让结尾更简洁）
-        content = re.sub(
-            r'border-top:\s*1px\s+dashed\s+#ccc;',
-            '',
-            content
-        )
+        content = re.sub(r"border-top:\s*1px\s+dashed\s+#ccc;", "", content)
 
         # === 图片圆角优化：让所有图片都圆润 ===
         # 给所有 img 标签添加圆角（修复后的正则）
         content = re.sub(
             r'<img([^>]*style="[^"]*)"',
             r'<img\1;border-radius:8px!important;"',
-            content
+            content,
         )
 
         # 给没有 style 属性的 img 添加圆角
         content = re.sub(
-            r'<img(?![^>]*style)([^>]*)>',
+            r"<img(?![^>]*style)([^>]*)>",
             r'<img\1 style="border-radius:8px!important;">',
-            content
+            content,
         )
 
         return content
 
-    def create_draft(self,
-                    title: str,
-                    content: str,
-                    author: str = "",
-                    thumb_media_id: str = "",
-                    digest: str = "",
-                    show_cover_pic: int = 1,
-                    content_base_dir: str = ".") -> Dict[str, Any]:
+    def create_draft(
+        self,
+        title: str,
+        content: str,
+        author: str = "",
+        thumb_media_id: str = "",
+        digest: str = "",
+        show_cover_pic: int = 1,
+        content_base_dir: str = ".",
+    ) -> Dict[str, Any]:
         """
         创建草稿文章
 
@@ -664,48 +672,48 @@ class WeChatPublisher:
         print("✓ 已优化HTML格式（防止编辑模式样式错位）")
 
         # 微信字段长度限制
-        MAX_AUTHOR_BYTES = 20      # 作者名20字节
-        MAX_DIGEST_BYTES = 120     # 摘要120字节
-        MAX_TITLE_CHARS = 64       # 标题64字符（微信官方限制）
-        MAX_TITLE_BYTES = 192      # 标题最大字节数（64汉字×3字节）
+        MAX_AUTHOR_BYTES = 20  # 作者名20字节
+        MAX_DIGEST_BYTES = 120  # 摘要120字节
+        MAX_TITLE_CHARS = 64  # 标题64字符（微信官方限制）
+        MAX_TITLE_BYTES = 192  # 标题最大字节数（64汉字×3字节）
 
         # 自动截断超长字段（按字节）
         def truncate_by_bytes(text, max_bytes):
             """按字节截断文本"""
-            encoded = text.encode('utf-8')
+            encoded = text.encode("utf-8")
             if len(encoded) <= max_bytes:
                 return text
             # 逐字符截断直到字节数符合要求
             for i in range(len(text), 0, -1):
                 truncated = text[:i]
-                if len(truncated.encode('utf-8')) <= max_bytes:
+                if len(truncated.encode("utf-8")) <= max_bytes:
                     return truncated
             return ""
 
         original_title = title
         title_chars = len(title)
-        title_bytes = len(title.encode('utf-8'))
+        title_bytes = len(title.encode("utf-8"))
 
         # 优先按字符数检查（微信官方限制是64字符）
         if title_chars > MAX_TITLE_CHARS:
-            print(f"\n⚠️  标题过长警告")
+            print("\n⚠️  标题过长警告")
             print(f"原标题: {original_title}")
             print(f"长度: {title_chars} 字符（限制: {MAX_TITLE_CHARS} 字符）")
 
             # 按字符数截断
             title = title[:MAX_TITLE_CHARS]
             print(f"已截断为: {title}")
-            print(f"\n提示: 您可以在微信编辑器中手动修改为完整标题\n")
+            print("\n提示: 您可以在微信编辑器中手动修改为完整标题\n")
         # 备用检查：如果字节数超过192（极端情况）
         elif title_bytes > MAX_TITLE_BYTES:
-            print(f"\n⚠️  标题字节数过长")
+            print("\n⚠️  标题字节数过长")
             print(f"原标题: {original_title}")
             print(f"字节数: {title_bytes} 字节（限制: {MAX_TITLE_BYTES} 字节）")
 
             # 按字节截断
             title = truncate_by_bytes(title, MAX_TITLE_BYTES)
             print(f"已截断为: {title}")
-            print(f"\n提示: 您可以在微信编辑器中手动修改为完整标题\n")
+            print("\n提示: 您可以在微信编辑器中手动修改为完整标题\n")
 
         print(f"→ 正在创建草稿: {title}")
 
@@ -721,59 +729,61 @@ class WeChatPublisher:
         original_digest = digest
         digest = truncate_by_bytes(digest, MAX_DIGEST_BYTES)
         if digest != original_digest:
-            print(f"⚠ 摘要超长，已自动截断")
+            print("⚠ 摘要超长，已自动截断")
 
         token = self.get_access_token()
         url = f"{self.BASE_URL}/draft/add?access_token={token}"
 
         # 构建文章数据
         articles = {
-            "articles": [{
-                "title": title,
-                "author": author,
-                "digest": digest,
-                "content": content,
-                "content_source_url": "",
-                "thumb_media_id": thumb_media_id,
-                "show_cover_pic": show_cover_pic,
-                "need_open_comment": 0,
-                "only_fans_can_comment": 0
-            }]
+            "articles": [
+                {
+                    "title": title,
+                    "author": author,
+                    "digest": digest,
+                    "content": content,
+                    "content_source_url": "",
+                    "thumb_media_id": thumb_media_id,
+                    "show_cover_pic": show_cover_pic,
+                    "need_open_comment": 0,
+                    "only_fans_can_comment": 0,
+                }
+            ]
         }
 
-        headers = {'Content-Type': 'application/json; charset=utf-8'}
+        headers = {"Content-Type": "application/json; charset=utf-8"}
         # 手动序列化JSON，确保中文不被转义
-        data = json.dumps(articles, ensure_ascii=False).encode('utf-8')
+        data = json.dumps(articles, ensure_ascii=False).encode("utf-8")
         response = requests.post(url, data=data, headers=headers)
         result = response.json()
 
-        if 'errcode' in result and result['errcode'] != 0:
+        if "errcode" in result and result["errcode"] != 0:
             # 如果是token过期，尝试刷新token后重试
-            if result['errcode'] in [40001, 42001]:
+            if result["errcode"] in [40001, 42001]:
                 print("⚠ access_token已过期，正在刷新...")
                 self.access_token = self.get_access_token(force_refresh=True)
                 token = self.access_token
                 url = f"{self.BASE_URL}/draft/add?access_token={token}"
-                data = json.dumps(articles, ensure_ascii=False).encode('utf-8')
+                data = json.dumps(articles, ensure_ascii=False).encode("utf-8")
                 response = requests.post(url, data=data, headers=headers)
                 result = response.json()
 
-                if 'errcode' in result and result['errcode'] != 0:
+                if "errcode" in result and result["errcode"] != 0:
                     error_msg = self._handle_api_error(
-                        result['errcode'],
-                        result.get('errmsg', 'Unknown error'),
-                        context="创建草稿"
+                        result["errcode"],
+                        result.get("errmsg", "Unknown error"),
+                        context="创建草稿",
                     )
                     raise Exception(error_msg)
             else:
                 error_msg = self._handle_api_error(
-                    result['errcode'],
-                    result.get('errmsg', 'Unknown error'),
-                    context="创建草稿"
+                    result["errcode"],
+                    result.get("errmsg", "Unknown error"),
+                    context="创建草稿",
                 )
                 raise Exception(error_msg)
 
-        print(f"✓ 草稿创建成功!")
+        print("✓ 草稿创建成功!")
         print(f"  media_id: {result.get('media_id')}")
 
         return result
@@ -782,22 +792,24 @@ class WeChatPublisher:
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description='微信公众号草稿发布工具',
+        description="微信公众号草稿发布工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
   %(prog)s --title "文章标题" --content article.html
   %(prog)s --title "文章标题" --content article.html --cover cover.png --author "作者名"
   %(prog)s --interactive  # 交互式模式
-        """
+        """,
     )
 
-    parser.add_argument('-t', '--title', help='文章标题')
-    parser.add_argument('-c', '--content', help='文章内容文件路径（HTML格式）')
-    parser.add_argument('-a', '--author', default='YanG', help='作者（默认: YanG）')
-    parser.add_argument('--cover', default='cover.png', help='封面图片路径（默认: cover.png）')
-    parser.add_argument('-d', '--digest', help='文章摘要')
-    parser.add_argument('--interactive', action='store_true', help='交互式模式')
+    parser.add_argument("-t", "--title", help="文章标题")
+    parser.add_argument("-c", "--content", help="文章内容文件路径（HTML格式）")
+    parser.add_argument("-a", "--author", default="YanG", help="作者（默认: YanG）")
+    parser.add_argument(
+        "--cover", default="cover.png", help="封面图片路径（默认: cover.png）"
+    )
+    parser.add_argument("-d", "--digest", help="文章摘要")
+    parser.add_argument("--interactive", action="store_true", help="交互式模式")
 
     args = parser.parse_args()
 
@@ -829,15 +841,15 @@ def main():
             print(f"错误: 内容文件不存在: {content_file}")
             sys.exit(1)
 
-        with open(content_file, 'r', encoding='utf-8') as f:
+        with open(content_file, "r", encoding="utf-8") as f:
             content = f.read()
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print(f"标题: {title}")
         print(f"作者: {author or '(未设置)'}")
         print(f"内容文件: {content_file} ({len(content)} 字符)")
         print(f"封面: {cover or '(无)'}")
-        print(f"{'='*50}\n")
+        print(f"{'=' * 50}\n")
 
         # 上传封面（如果有）
         thumb_media_id = ""
@@ -851,12 +863,12 @@ def main():
             author=author,
             thumb_media_id=thumb_media_id,
             digest=digest,
-            content_base_dir=os.path.dirname(os.path.abspath(content_file)) or "."
+            content_base_dir=os.path.dirname(os.path.abspath(content_file)) or ".",
         )
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("✓ 发布成功！请前往微信公众号后台查看草稿")
-        print(f"{'='*50}")
+        print(f"{'=' * 50}")
 
     except KeyboardInterrupt:
         print("\n\n操作已取消")
@@ -866,5 +878,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
