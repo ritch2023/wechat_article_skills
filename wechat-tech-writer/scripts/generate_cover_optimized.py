@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """按照优化后的设计原则生成封面图"""
-import sys
+
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from generate_image import GeminiImageGenerator
+from generate_image import OllamaImageGenerator
+
 
 def generate_optimized_cover():
     """
@@ -55,7 +57,9 @@ IMPORTANT: All text in simplified Chinese (简体中文), minimal text, accurate
 Aspect ratio: 16:9, high quality, magazine cover style.
 """
 
-    output_path = r"G:\git_pull\微信公众号文章\AI提效系列\claude_skills_cover_optimized.png"
+    output_path = (
+        r"G:\git_pull\微信公众号文章\AI提效系列\claude_skills_cover_optimized.png"
+    )
 
     try:
         print("Generating optimized cover image with enhanced design principles...")
@@ -65,7 +69,7 @@ Aspect ratio: 16:9, high quality, magazine cover style.
         print("Emotional appeal: Curiosity, excitement, empowerment")
         print("")
 
-        generator = GeminiImageGenerator()
+        generator = OllamaImageGenerator()
         result = generator.generate(prompt, output_path)
 
         print(f"Success: {result}")
@@ -80,6 +84,7 @@ Aspect ratio: 16:9, high quality, magazine cover style.
     except Exception as e:
         print(f"Error: {str(e)}")
         return 1
+
 
 if __name__ == "__main__":
     sys.exit(generate_optimized_cover())
