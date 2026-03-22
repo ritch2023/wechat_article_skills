@@ -150,7 +150,7 @@ cd /root/.claude/skills/wechat-tech-writer
 
 python scripts/generate_image.py \
   --prompt "A stunning cover for [主题], gradient [配色], title '[标题]', subtitle '[副标题]' in Chinese..." \
-  --api gemini \
+  --api ollama \
   --output cover.png
 ```
 
@@ -338,6 +338,14 @@ python scripts/generate_image.py \
 
 ### 常用命令
 
+**生成封面图（Ollama）**：
+```bash
+python scripts/generate_image.py \
+  --prompt "提示词" \
+  --api ollama \
+  --output cover.png
+```
+
 **生成封面图（Gemini）**：
 ```bash
 python scripts/generate_image.py \
@@ -382,7 +390,7 @@ python scripts/generate_image.py \
 # 步骤5：生成封面图（强制）
 generate_image(
   prompt="Claude Sonnet 4 封面，蓝紫渐变，标题+副标题...",
-  api="gemini",
+  api="ollama",
   output="cover.png"
 )
 

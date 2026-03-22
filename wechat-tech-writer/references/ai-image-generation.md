@@ -47,7 +47,13 @@ AI生成图片可以有效补充技术文章的视觉内容，特别适合创建
 
 **基本用法**：
 ```bash
-# 使用Gemini Imagen API (推荐)
+# 使用ollama Imagen API (推荐)
+python scripts/generate_image.py \
+  --prompt "图片描述提示词" \
+  --api ollama \
+  --output /home/claude/images/cover.png
+
+# 使用Gemini Imagen API
 python scripts/generate_image.py \
   --prompt "图片描述提示词" \
   --api gemini \
@@ -62,6 +68,10 @@ python scripts/generate_image.py \
 
 **环境配置**：
 ```bash
+# 使用Ollama需要设置
+export OLLAMA_HOST="http://localhost:11434"
+export OLLAMA_MODEL"x/z-image-turbo"
+
 # 使用Gemini需要设置
 export GEMINI_API_KEY="your-api-key"
 
@@ -78,7 +88,7 @@ import os
 subprocess.run([
     'python', 'scripts/generate_image.py',
     '--prompt', 'A modern cover image for an article about Claude AI. Style: minimalist, blue gradient.',
-    '--api', 'gemini',
+    '--api', 'ollama',
     '--output', '/home/claude/images/cover.png'
 ])
 
@@ -103,7 +113,8 @@ Claude会直接生成图片，然后保存到本地并在文章中引用。
 
 | API | 优势 | 劣势 | 推荐场景 |
 |-----|------|------|---------|
-| **Gemini Imagen** | 质量高，速度快，价格合理 | 需要Google API密钥 | 所有场景，首选 |
+| **Ollama** | 免费,无隐私问题 | 需要安装Ollama和下载模型 | 所有场景，首选 |
+| **Gemini Imagen** | 质量高，速度快，价格合理 | 需要Google API密钥 | 所有场景 |
 | **DALL-E 3** | 质量优秀，细节丰富 | 速度较慢，价格稍高 | 需要高质量封面图 |
 | **Claude原生** | 无需外部API，方便 | 仅在claude.ai可用 | claude.ai环境 |
 
@@ -136,7 +147,7 @@ for img in images_to_generate:
     subprocess.run([
         'python', 'scripts/generate_image.py',
         '--prompt', img['prompt'],
-        '--api', 'gemini',
+        '--api', 'ollama',
         '--output', img['output']
     ])
 

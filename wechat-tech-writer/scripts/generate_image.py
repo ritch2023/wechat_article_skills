@@ -4,15 +4,15 @@
 图片生成API调用脚本
 
 支持多种图片生成API:
+- Ollama API (Local)
 - Gemini Imagen API (Google)
 - DALL-E API (OpenAI)
-- Ollama API (Local)
 - 其他自定义API
 
 使用方法:
+    python generate_image.py --prompt "图片描述" --api ollama --output output.png
     python generate_image.py --prompt "图片描述" --api gemini --output output.png
     python generate_image.py --prompt "图片描述" --api dalle --output output.png
-    python generate_image.py --prompt "图片描述" --api ollama --output output.png
 """
 
 import argparse
